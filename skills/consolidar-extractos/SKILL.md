@@ -1,6 +1,6 @@
 ---
 name: consolidar-extractos
-description: Ordena y unifica extractos bancarios desordenados (xls, xlsx, csv, pdf, mensuales, semanales, agrupados, duplicados, varias cuentas y bancos) de cualquier empresa en UN Excel limpio por banco, con una solapa por cuenta, resumen y saldo corrido verificado. Usar cuando el usuario pida consolidar, ordenar, unificar o emprolijar extractos o movimientos bancarios de un período (por ejemplo para gerencia, auditoría, contador, un banco o un cliente de la consultora). NO es para el libro mayor contable (eso no es un extracto del banco), ni para conciliar contra la contabilidad, ni para facturas u órdenes de pago.
+description: Ordena y unifica extractos bancarios desordenados (xls, xlsx, csv, pdf, mensuales, semanales, agrupados, duplicados, varias cuentas y bancos) de cualquier empresa en UN Excel limpio por banco, con una solapa por cuenta, resumen y saldo corrido verificado. Usar cuando el usuario pida consolidar, ordenar, unificar o emprolijar extractos o movimientos bancarios de un período (por ejemplo para gerencia, auditoría, contador, un banco o un cliente de la consultora). El libro mayor contable NO es un extracto del banco: solo se usa como último recurso para suplir un tramo cuyo extracto se perdió, en hojas aparte y rotuladas. NO es para conciliar contra la contabilidad ni para facturas u órdenes de pago.
 user-invocable: true
 ---
 
