@@ -1,0 +1,19 @@
+{
+  "empresa": "Nombre de la Empresa SA",
+  "cuit": "30-00000000-0",
+  "entrada": "/ruta/a/la/carpeta/con/los/extractos",
+  "salida": "/ruta/donde/dejar/los/excel",
+  "idioma": "es",
+  "periodo_texto": "Año fiscal octubre 2025 - octubre 2026.",
+
+  "bancos": [
+    {"contiene": "Galica", "banco": "Galicia"}
+  ],
+  "cuentas": [
+    {"banco": "Galicia", "contiene_archivo": "0123-4", "cuenta": "CC 0123-4", "solapa": "CC 0123-4"},
+    {"banco": "Galicia", "cuenta": "CC principal"}
+  ],
+  "notas": {
+    "Galicia": ["La cuenta secundaria se cerró en julio de 2026."]
+  }
+}
