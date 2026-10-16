@@ -82,23 +82,6 @@ def escribir_beta(path, filas):
     wb.save(path)
 
 
-def escribir_mayor(path):
-    """Libro mayor inventado de una cuenta bancaria. Haber = sale plata del banco, Debe = entra.
-    Incluye una entidad HTML (&#243;) que contiene un ';' y una fila fuera del periodo."""
-    enc = 'Cuenta;Fecha;Comprobante;CUIT;Razon Social;Concepto;Monto Debe;Monto Haber;Saldo;Observaciones;<td>Centro de Costo</td>Fecha alta;Fecha modi;Control;'
-    filas = [('03/02/2026', 'P-00000001', '30111111111', 'PROVEEDOR UNO SA', 'Pago factura', '0,00', '1000,00', '-1000'),
-             ('03/02/2026', 'R-00000001', '30222222222', 'CLIENTE DOS SA', '', '5000,50', '0,00', '4000,5'),
-             ('04/02/2026', 'U-00000001', '', '', 'Comisi&#243;n bancaria', '0,00', '250,25', '3750,25'),
-             ('05/02/2026', 'U-00000002', '', '', 'IMP. AFIP', '0,00', '750,25', '3000'),
-             ('06/02/2026', 'R-00000002', '30222222222', 'CLIENTE DOS SA', 'Cobro', '2000,00', '0,00', '5000'),
-             ('10/02/2026', 'P-00000002', '30111111111', 'PROVEEDOR UNO SA', 'Pago', '0,00', '500,00', '4500'),
-             ('30/04/2026', 'P-00000099', '30333333333', 'CARGADA TARDE SA', 'factura', '0,00', '50,00', '4450')]
-    with open(path, 'w', encoding='utf-8', newline='') as fh:
-        fh.write(enc + '\n01.01.01.003.002 BANCO / BANCO ALFA CTA CTE - 000123;\n')
-        for f, comp, cuit, rs, con, debe, haber, saldo in filas:
-            fh.write(f';{f};{comp};{cuit};{rs};{con};{debe};{haber};{saldo};;General;2026-02-20;;;\n')
-
-
 def main():
     tmp = tempfile.mkdtemp(prefix='test_extractos_')
     entrada, salida = os.path.join(tmp, 'entrada'), os.path.join(tmp, 'salida')
@@ -143,14 +126,10 @@ def main():
     # ---- banco imposible de identificar
     escribir_alfa(os.path.join(entrada, 'Varios', 'extracto_raro.csv'), alfa[:5])
 
-    mayor_csv = os.path.join(tmp, 'mayor_alfa.csv')            # fuera de la carpeta de entrada, a proposito
-    escribir_mayor(mayor_csv)
     cfg_json = os.path.join(tmp, 'proyecto.json')
     json.dump({'empresa': 'Empresa de Prueba', 'cuit': '', 'entrada': entrada, 'salida': salida, 'idioma': 'es',
                'bancos': [{'contiene': 'Alfa', 'banco': 'Banco Alfa'}, {'contiene': 'Beta', 'banco': 'Banco Beta'}],
-               'cuentas': [{'banco': 'Banco Alfa', 'cuenta': 'CC Alfa'}, {'banco': 'Banco Beta', 'cuenta': 'CC Beta'}],
-               'mayores': [{'archivo': mayor_csv, 'banco': 'Banco Alfa', 'cuenta': 'CC Alfa', 'solapa': 'CC Alfa (mayor feb)',
-                            'desde': '2026-02-01', 'hasta': '2026-02-28'}]},
+               'cuentas': [{'banco': 'Banco Alfa', 'cuenta': 'CC Alfa'}, {'banco': 'Banco Beta', 'cuenta': 'CC Beta'}]},
               open(cfg_json, 'w'))
     cfg = cargar_config(cfg_json)
 
@@ -170,7 +149,6 @@ def main():
     pasos.leer(cfg)
     pasos.unificar(cfg)
     pasos.pdf(cfg)
-    mayor_filas = pasos.mayor(cfg)
     pasos.excel(cfg)
     rc = pasos.verificar(cfg)
     final = leer_movimientos(os.path.join(cfg['trabajo'], 'final.csv'))
@@ -185,21 +163,6 @@ def main():
     chequear(len(cortes) == 0, 'cero cortes de saldo en el resultado')
     chequear(rc == 0, 'el verificador independiente da OK')
     chequear(os.path.exists(os.path.join(salida, 'Banco Alfa Empresa de Prueba - Movimientos.xlsx')), 'se genero un Excel por banco')
-
-    # ---- libro mayor como fuente secundaria
-    chequear(len(mayor_filas) == 6, f'mayor: 6 filas dentro del periodo (leyo {len(mayor_filas)}), la de abril queda afuera')
-    exc = list(csv.DictReader(open(os.path.join(cfg['trabajo'], 'mayor_excluidas.csv'), encoding='utf-8-sig'), delimiter=';'))
-    chequear(len(exc) == 1 and exc[0]['referencia'] == 'P-00000099', 'mayor: la fila fuera de periodo se informa en mayor_excluidas.csv')
-    chequear(any(r['descripcion'] == 'Comisión bancaria' for r in mayor_filas), 'mayor: la entidad HTML (&#243;) no parte la fila')
-    pago = [r for r in mayor_filas if r['referencia'] == 'P-00000001'][0]
-    cobro = [r for r in mayor_filas if r['referencia'] == 'R-00000001'][0]
-    chequear(pago['debito'] == D('1000') and pago['credito'] == 0 and cobro['credito'] == D('5000.50') and cobro['debito'] == 0,
-             'mayor: Haber = debito del banco y Debe = credito del banco')
-    import openpyxl
-    wbm = openpyxl.load_workbook(os.path.join(salida, 'Banco Alfa Empresa de Prueba - Movimientos.xlsx'))
-    chequear('CC Alfa (mayor feb)' in wbm.sheetnames, 'mayor: va en una hoja aparte, no mezclada con la del banco')
-    chequear('mayor' in str(wbm['CC Alfa (mayor feb)']['A1'].value).lower(), 'mayor: la hoja lleva un rotulo que dice que no es extracto')
-    chequear(len(final) == len(alfa) + len(beta), 'mayor: no se mezclo con los movimientos del banco')
 
     shutil.rmtree(tmp, ignore_errors=True)
     if fallos:

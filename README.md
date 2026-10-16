@@ -20,7 +20,7 @@ Merging these by hand is slow and risky: one duplicated or dropped transfer sile
 ## What it does
 
 ```
-inventory -> read -> unify -> pdf -> (mayor) -> excel -> verify
+inventory -> read -> unify -> pdf -> excel -> verify
 ```
 
 | Step | What happens | Output (`<out>/trabajo/`) |
@@ -29,7 +29,6 @@ inventory -> read -> unify -> pdf -> (mayor) -> excel -> verify
 | `leer` | Reads every xls/xlsx/csv into one schema; checks each file's own running balance | `crudos.csv` |
 | `unificar` | Keeps **one source file per day and account**; rows that only another file has are added and flagged | `unificados.csv`, `fuentes.csv`, `cortes.csv` |
 | `pdf` | Reads only the PDFs that have no spreadsheet version and adds the rows that are genuinely new | `final.csv` |
-| `mayor` *(optional)* | For accounts whose statement is lost, adds the accounting-ledger movements on **separate, clearly labelled sheets** (never mixed with bank data; ledger balance is not the bank balance) | `mayor.csv`, `mayor_excluidas.csv` |
 | `excel` | One workbook per bank: Summary + one sheet per account (+ `Avisos` only if a balance does not chain) | `<Bank> <Company> - Movimientos.xlsx` |
 | `verificar` | Re-opens the workbooks and recomputes row counts, debit/credit totals and running balance | exit code 0 / 1 |
 

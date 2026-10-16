@@ -38,10 +38,3 @@ Todas salen de un caso real (empresa argentina, año fiscal, 4 bancos, 7 cuentas
   contra lo ya unificado: de 13 PDFs, 9 estaban completos y 4 aportaron filas.
 - **Cada PDF se compara por separado** contra lo unificado (no consumir el mismo contador de filas con varios PDFs
   que cubren el mismo tramo, o el segundo parecerá "nuevo").
-- **El libro mayor puede suplir un extracto perdido, pero no se mezcla.** Se agrega en hojas aparte y rotuladas:
-  el mayor es el registro de la empresa (p. ej. un cheque aparece el día que se emitió, no el día que el banco lo
-  debitó) y su saldo es relativo al período exportado. Se cruza el signo: Haber = débito del banco, Debe = crédito.
-  Pasó que un asiento cargado meses después (fecha de abril en un mayor de enero) venía en el archivo: se excluye
-  por período y se informa, no se descarta en silencio.
-- **Un archivo "nuevo" puede ser uno ya cargado.** Antes de procesar un PDF que llega, comparar el `md5` con los ya
-  leídos: el de 20-31/07 que llegó de nuevo era idéntico y no aportaba nada.
