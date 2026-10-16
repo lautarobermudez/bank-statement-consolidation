@@ -4,6 +4,7 @@
   2 leer        -> crudos.csv           todos los xls/xlsx/csv al esquema comun (con solapes)
   3 unificar    -> unificados.csv       un solo archivo por dia y cuenta; fuentes.csv; cortes.csv
   4 pdf         -> final.csv            suma SOLO las filas de PDFs sin version excel que no estan ya
+  4b mayor      -> mayor.csv            (opcional) tramos sin extracto, desde el libro mayor, en hojas aparte
   5 excel       -> <Banco> ... .xlsx    un Excel por banco + interno/Trazabilidad
   6 verificar   -> informe              recalcula todo desde los Excel
 """
@@ -14,7 +15,7 @@ import os
 import re
 from decimal import Decimal
 
-from .adaptadores import leer_archivo
+from .adaptadores import leer_archivo, leer_mayor
 from .comunes import (CERO, COLUMNAS, TOL, a_numero, errores_de_saldo, escribir_movimientos, escribir_tabla,
                       leer_movimientos, md5)
 
@@ -293,18 +294,60 @@ def pdf(cfg):
     return final
 
 
+# ------------------------------------------------------------------ 4b. mayor (fuente secundaria, opcional)
+def mayor(cfg):
+    """Suma, como hojas APARTE y rotuladas, los movimientos de un libro mayor contable para cuentas cuyo extracto
+    del banco no existe (se perdio, no se descargo). Nunca se mezclan con las hojas del banco: el mayor no es
+    un extracto y su saldo es relativo al periodo exportado. Se configura en `mayores` del proyecto.json."""
+    t = _trabajo(cfg)
+    filas_all, meta, excl_all = [], {}, []
+    for m in cfg.get('mayores', []):
+        ruta = m['archivo'] if os.path.isabs(m['archivo']) else os.path.join(cfg['entrada'], m['archivo'])
+        desde = datetime.date.fromisoformat(m['desde']) if m.get('desde') else None
+        hasta = datetime.date.fromisoformat(m['hasta']) if m.get('hasta') else None
+        r = leer_mayor(ruta, desde, hasta)
+        banco, cuenta = m['banco'], m['cuenta']
+        filas = [dict(f, banco=banco, cuenta=cuenta, archivo=os.path.basename(ruta), nota='libro mayor') for f in r['filas']]
+        filas_all.extend(filas)
+        excl_all.extend(dict(f, banco=banco, cuenta=cuenta, archivo=os.path.basename(ruta), nota='fuera del periodo')
+                        for f in r['excluidas'])
+        meta[f'{banco}||{cuenta}'] = dict(solapa=m.get('solapa') or (cuenta + ' (mayor)'), archivo=os.path.basename(ruta),
+                                          cuenta_mayor=r['cuenta_mayor'], excluidas=len(r['excluidas']))
+        cortes = errores_de_saldo(filas)
+        print(f'{banco} / {cuenta}: {len(filas)} filas del mayor ({r["cuenta_mayor"]}) '
+              f'{filas[0]["fecha"] if filas else "-"} a {filas[-1]["fecha"] if filas else "-"}; '
+              f'saldo corrido del mayor: {cortes} cortes; excluidas por periodo: {len(r["excluidas"])}')
+        for f in r['excluidas']:
+            print(f'   EXCLUIDA ({f["fecha"]}, {f["referencia"]}, {f["descripcion"][:40]}, '
+                  f'debito {f["debito"]}, credito {f["credito"]}, cargada el {f["alta"]}): fuera del periodo pedido')
+        for a in r['avisos']:
+            print('   AVISO:', a)
+    escribir_movimientos(os.path.join(t, 'mayor.csv'), filas_all)
+    escribir_movimientos(os.path.join(t, 'mayor_excluidas.csv'), excl_all)
+    json.dump(meta, open(os.path.join(t, 'mayor_meta.json'), 'w', encoding='utf-8'), ensure_ascii=False)
+    if not cfg.get('mayores'):
+        print('No hay `mayores` en la configuracion: nada que hacer.')
+    return filas_all
+
+
 # ------------------------------------------------------------------ 5. excel
 ETIQUETAS = {
     'es': dict(titulo='Movimientos bancarios', sub='Fuente: extractos descargados del banco.', resumen='Resumen',
                cols=['Fecha', 'Descripción', 'Detalle', 'Referencia', 'Débito', 'Crédito', 'Saldo'],
                res=['Cuenta', 'Desde', 'Hasta', 'Movimientos', 'Saldo inicial', 'Total débitos', 'Total créditos', 'Saldo final'],
                notas='Notas', avisos='Avisos', av=['Cuenta', 'Fecha', 'Descripción', 'Saldo informado', 'Saldo de la fila anterior'],
-               archivo='Movimientos', tz='Filas tomadas de otro archivo'),
+               archivo='Movimientos', tz='Filas tomadas de otro archivo',
+               mayor_titulo='Tomado del libro mayor contable (no hay extracto del banco para este tramo)',
+               mayor_aviso='El mayor es el registro de la empresa, no lo informado por el banco. El saldo es acumulado desde el inicio de lo exportado y no es el saldo bancario.',
+               mayor_saldo='Saldo acumulado del mayor', mayor_sec='Libro mayor (no es extracto del banco)'),
     'en': dict(titulo='Bank transactions', sub='Source: statements downloaded from the bank.', resumen='Summary',
                cols=['Date', 'Description', 'Details', 'Reference', 'Debit', 'Credit', 'Balance'],
                res=['Account', 'From', 'To', 'Transactions', 'Opening balance', 'Total debits', 'Total credits', 'Closing balance'],
                notas='Notes', avisos='Warnings', av=['Account', 'Date', 'Description', 'Reported balance', 'Previous row balance'],
-               archivo='Transactions', tz='Rows taken from another file'),
+               archivo='Transactions', tz='Rows taken from another file',
+               mayor_titulo='Taken from the accounting ledger (no bank statement exists for this period)',
+               mayor_aviso='The ledger is the company\'s own record, not what the bank reported. Its balance is cumulative from the start of the export and is not the bank balance.',
+               mayor_saldo='Ledger running balance', mayor_sec='Accounting ledger (not a bank statement)'),
 }
 
 
@@ -338,6 +381,13 @@ def excel(cfg):
     por_banco = collections.OrderedDict()
     for r in movs:
         por_banco.setdefault(r['banco'], collections.OrderedDict()).setdefault(r['cuenta'], []).append(r)
+    may, may_meta = {}, {}
+    if os.path.exists(os.path.join(t, 'mayor.csv')) and os.path.exists(os.path.join(t, 'mayor_meta.json')):
+        may_meta = json.load(open(os.path.join(t, 'mayor_meta.json'), encoding='utf-8'))
+        for r in leer_movimientos(os.path.join(t, 'mayor.csv')):
+            may.setdefault(r['banco'], collections.OrderedDict()).setdefault(r['cuenta'], []).append(r)
+        for b in may:
+            por_banco.setdefault(b, collections.OrderedDict())
     traza, generados = [], []
     empresa = cfg['empresa'] + (f" (CUIT {cfg['cuit']})" if cfg['cuit'] else '')
     for banco, cuentas in por_banco.items():
@@ -379,13 +429,44 @@ def excel(cfg):
         for c, w in enumerate([34, 12, 12, 13, 18, 18, 18, 18], 1):
             res.column_dimensions[get_column_letter(c)].width = w
         res.freeze_panes = 'A5'
+        fila = 6 + len(cuentas)
+        if banco in may:
+            res.cell(row=fila, column=1, value=L['mayor_sec']).font = Font(bold=True)
+            for cuenta, filas in may[banco].items():
+                fila += 1
+                for c, v in enumerate([may_meta[f'{banco}||{cuenta}']['solapa'], filas[0]['fecha'], filas[-1]['fecha'], len(filas),
+                                       None, float(sum(r['debito'] for r in filas)), float(sum(r['credito'] for r in filas)), None], 1):
+                    cel = res.cell(row=fila, column=c, value=v)
+                    if c in (2, 3): cel.number_format = 'DD/MM/YYYY'
+                    if c in (6, 7): cel.number_format = fmt
+            fila += 1
+            res.cell(row=fila, column=1, value='• ' + L['mayor_aviso'])
+            fila += 2
         notas = notas_banco.get(banco, [])
         if notas:
-            fila = 6 + len(cuentas)
             res.cell(row=fila, column=1, value=L['notas']).font = Font(bold=True)
             for x in notas:
                 fila += 1
                 res.cell(row=fila, column=1, value='• ' + x)
+        for cuenta, filas in (may.get(banco) or {}).items():      # hojas del mayor, aparte de las del banco
+            meta = may_meta[f'{banco}||{cuenta}']
+            wm = wb.create_sheet(_nombre_solapa(meta['solapa'], usadas, {}, banco))
+            wm['A1'] = L['mayor_titulo']
+            wm['A1'].font = Font(bold=True, size=12, color='9C0006')
+            wm['A2'] = f"{L['mayor_aviso']} ({meta['archivo']}: {meta['cuenta_mayor']})"
+            for c, x in enumerate(L['cols'][:-1] + [L['mayor_saldo']], 1):
+                cel = wm.cell(row=4, column=c, value=x); cel.fill, cel.font = HEAD, BLANCO
+            for n, r in enumerate(filas, start=5):
+                wm.cell(row=n, column=1, value=r['fecha']).number_format = 'DD/MM/YYYY'
+                wm.cell(row=n, column=2, value=r['descripcion'])
+                wm.cell(row=n, column=3, value=r['detalle'])
+                wm.cell(row=n, column=4, value=r['referencia'])
+                for c, k in ((5, 'debito'), (6, 'credito'), (7, 'saldo')):
+                    wm.cell(row=n, column=c, value=None if r[k] is None else float(r[k])).number_format = fmt
+            for c, w in enumerate([12, 40, 60, 22, 16, 16, 22], 1):
+                wm.column_dimensions[get_column_letter(c)].width = w
+            wm.freeze_panes = 'A5'
+            wm.auto_filter.ref = f'A4:G{len(filas) + 4}'
         cb = [k for k in cortes_all if k['banco'] == banco]
         if cb:      # los saldos que no empalman NUNCA se esconden
             av = wb.create_sheet(L['avisos'])
@@ -399,7 +480,7 @@ def excel(cfg):
                 av.cell(row=n, column=5, value=float(k['saldo_anterior'])).number_format = fmt
         nombre = os.path.join(destino, f"{banco} {cfg['empresa']} - {L['archivo']}.xlsx")
         wb.save(nombre)
-        generados.append((banco, nombre, sum(len(f) for f in cuentas.values())))
+        generados.append((banco, nombre, sum(len(f) for f in cuentas.values()) + sum(len(f) for f in (may.get(banco) or {}).values())))
     wbt = Workbook()
     wt = wbt.active
     wt.title = L['tz'][:31]
@@ -432,6 +513,11 @@ def verificar(cfg):
     por_banco = collections.defaultdict(list)
     for r in movs:
         por_banco[r['banco']].append(r)
+    mayor_filas = collections.defaultdict(list)
+    if os.path.exists(os.path.join(t, 'mayor.csv')):
+        for r in leer_movimientos(os.path.join(t, 'mayor.csv')):
+            mayor_filas[r['banco']].append(r)
+            por_banco.setdefault(r['banco'], [])
     for banco, esperadas in por_banco.items():
         ruta = os.path.join(cfg['salida'], f"{banco} {cfg['empresa']} - {L['archivo']}.xlsx")
         if not os.path.exists(ruta):
@@ -440,8 +526,17 @@ def verificar(cfg):
         wb = openpyxl.load_workbook(ruta)
         filas_excel = 0
         suma_deb = suma_cred = CERO
+        may_n, may_deb, may_cred = 0, CERO, CERO
         for ws in wb.worksheets:
             if ws.title in (L['resumen'], L['avisos']):
+                continue
+            es_mayor = ws['A1'].value == L['mayor_titulo']
+            if es_mayor:
+                for row in ws.iter_rows(min_row=5, values_only=True):
+                    if row[0] is not None:
+                        may_n += 1
+                        may_deb += Decimal(str(row[4] or 0))
+                        may_cred += Decimal(str(row[5] or 0))
                 continue
             prev, cortes, n = None, 0, 0
             for row in ws.iter_rows(min_row=2, values_only=True):
@@ -465,6 +560,12 @@ def verificar(cfg):
         c = sum(r['credito'] for r in esperadas)
         if abs(suma_deb - d) > TOL or abs(suma_cred - c) > TOL:
             problemas.append(f'{banco}: los totales de débito/crédito no coinciden con los datos')
+        esperado_may = mayor_filas.get(banco, [])
+        if may_n != len(esperado_may) or abs(may_deb - sum(r['debito'] for r in esperado_may)) > TOL \
+                or abs(may_cred - sum(r['credito'] for r in esperado_may)) > TOL:
+            problemas.append(f'{banco}: las hojas del mayor no coinciden con mayor.csv ({may_n} vs {len(esperado_may)} filas)')
+        if may_n:
+            print(f'  {banco:22} {may_n:5} filas del libro mayor en hojas aparte (rotuladas)')
         total += filas_excel
         print(f'  {banco:22} {filas_excel:5} filas en el Excel, totales {"OK" if abs(suma_deb - d) <= TOL and abs(suma_cred - c) <= TOL else "NO COINCIDEN"}')
     print(f'Total en Excel: {total} | datos finales: {len(movs)}')

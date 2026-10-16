@@ -9,6 +9,7 @@ Lectores:
 Para un banco nuevo casi siempre alcanza `tabla`; si no, ver references/agregar_un_banco.md.
 """
 import csv
+import html
 import os
 import re
 import unicodedata
@@ -321,3 +322,43 @@ def leer_archivo(path, ruta_rel, cfg):
     cuenta, solapa = asignar_cuenta(banco, ruta_rel, r['cuenta'], cfg)
     r.update(banco=banco, cuenta=cuenta, solapa=solapa)
     return r
+
+
+# ---------------------------------------------------------------- libro mayor (fuente secundaria)
+def leer_mayor(path, desde=None, hasta=None):
+    """Lee el CSV del libro mayor de una cuenta bancaria exportado de un sistema contable
+    (Cuenta;Fecha;Comprobante;CUIT;Razon Social;Concepto;Monto Debe;Monto Haber;Saldo;...).
+    OJO: NO es un extracto del banco. Desde el lado del banco, Haber = debito y Debe = credito.
+    El saldo del mayor es acumulado desde el inicio de lo exportado: no es el saldo bancario.
+    Las entidades HTML (&#243;) se decodifican ANTES de separar por ';' (contienen un ';' y partian las filas).
+    Se leen los campos de derecha a izquierda porque el concepto puede traer ';'.
+    Devuelve dict(cuenta_mayor, filas, excluidas, avisos). `excluidas` = filas fuera de [desde, hasta]."""
+    raw = open(path, 'rb').read()
+    try:
+        texto = raw.decode('utf-8-sig')
+    except UnicodeDecodeError:
+        texto = raw.decode('latin-1')
+    texto = html.unescape(texto)
+    cuenta, filas, excluidas, avisos = '', [], [], []
+    for n, ln in enumerate(texto.splitlines(), start=1):
+        p = ln.split(';')
+        if p[0] and p[0].strip().lower() != 'cuenta':
+            cuenta = p[0].strip()
+            continue
+        if len(p) < 14 or not re.match(r'\d\d/\d\d/\d{4}$', p[1].strip()):
+            continue
+        f = a_fecha(p[1])
+        concepto = ';'.join(p[5:-9]).strip()
+        razon, cuit, comp = p[4].strip(), p[3].strip(), p[2].strip()
+        debe, haber, saldo = a_numero(p[-9]), a_numero(p[-8]), a_numero(p[-7])
+        det = ' | '.join(x for x in (razon, f'CUIT {cuit}' if cuit else '', f'Comprobante {comp}' if comp else '') if x)
+        fila = dict(fecha=f, descripcion=concepto or razon, detalle=det, referencia=comp,
+                    debito=haber or CERO, credito=debe or CERO, saldo=saldo, fila=n,
+                    alta=p[-4].strip())
+        if (desde and f < desde) or (hasta and f > hasta):
+            excluidas.append(fila)
+        else:
+            filas.append(fila)
+    if not filas:
+        avisos.append('no se encontro ninguna fila del mayor dentro del periodo')
+    return dict(cuenta_mayor=cuenta, filas=filas, excluidas=excluidas, avisos=avisos)

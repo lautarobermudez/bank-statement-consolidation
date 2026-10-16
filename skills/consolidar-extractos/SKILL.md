@@ -31,9 +31,10 @@ python scripts/consolidar.py inventario --config proyecto.json   # 1. qué hay
 python scripts/consolidar.py leer       --config proyecto.json   # 2. todo al mismo esquema
 python scripts/consolidar.py unificar   --config proyecto.json   # 3. un archivo por día y cuenta
 python scripts/consolidar.py pdf        --config proyecto.json   # 4. suma lo que solo está en PDF
+python scripts/consolidar.py mayor      --config proyecto.json   # 4b. (opcional) tramos sin extracto, desde el libro mayor
 python scripts/consolidar.py excel      --config proyecto.json   # 5. un Excel por banco
 python scripts/consolidar.py verificar  --config proyecto.json   # 6. control independiente
-python scripts/consolidar.py todo       --config proyecto.json   # 2 a 6 de corrido
+python scripts/consolidar.py todo       --config proyecto.json   # 2 a 6 de corrido (incluye `mayor` si está configurado)
 ```
 
 1. **Inventario, y revisarlo con el usuario antes de seguir.** Mirar: bancos o cuentas sin identificar (agregar
@@ -44,6 +45,15 @@ python scripts/consolidar.py todo       --config proyecto.json   # 2 a 6 de corr
 3. **Excel + verificar.** `verificar` reabre los Excel y recalcula filas, totales y saldo corrido. Si no da OK, no se entrega.
 4. **Entrega.** Mostrar al usuario: cuentas y períodos, filas por banco, cortes de saldo (si hay), y qué se tomó de
    PDFs. El usuario revisa y decide si consolida en un solo archivo. **No enviar mails ni subir nada sin que lo pida.**
+
+## Si falta el extracto de un tramo (libro mayor como último recurso)
+Si el extracto de un período se perdió, se puede suplir con el **libro mayor** de la cuenta bancaria exportado del
+sistema contable (CSV). Reglas: va **siempre en hojas aparte, rotuladas** ("tomado del libro mayor, no es extracto
+del banco"), nunca mezclado con las hojas del banco; su saldo es acumulado desde el inicio de lo exportado y **no es
+el saldo bancario**; Haber = débito del banco y Debe = crédito. Se configura en `mayores` (ver
+`references/configuracion.md`) y el CSV va **fuera** de la carpeta de entrada. Las filas fuera del período pedido se
+excluyen y se informan (ej.: un asiento cargado meses después). Avisar al usuario que ese tramo no es del banco.
+Un PDF o archivo que resulta idéntico (mismo `md5`) a uno ya cargado no aporta nada: decirlo.
 
 ## Qué dejan los scripts (en `<salida>/`)
 - `<Banco> <Empresa> - Movimientos.xlsx`: Resumen + una solapa por cuenta (+ `Avisos` solo si hay saldos que no empalman).
