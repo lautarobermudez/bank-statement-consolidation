@@ -17,6 +17,8 @@ proyecto_*.json
 !skills/**/proyecto.ejemplo.json
 trabajo/
 interno/
+examples/demo_input/
+examples/demo_output/
 
 # OS / editors
 .DS_Store

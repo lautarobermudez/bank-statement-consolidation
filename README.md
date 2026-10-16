@@ -34,6 +34,21 @@ inventory -> read -> unify -> pdf -> excel -> verify
 
 Rows pulled from a secondary file are listed in `interno/Trazabilidad - ...xlsx`, kept out of the deliverable so the report stays clean while every row remains traceable.
 
+## See it in 10 seconds
+
+```bash
+pip install -r skills/consolidar-extractos/scripts/requirements.txt
+python examples/make_demo.py
+```
+
+It builds a small **fictional** set of messy statements (monthly + grouped + weekly files that overlap, different wording and intra-day order between downloads, a duplicate, a newest-first file) in `examples/demo_input/`, runs the whole pipeline and writes one workbook per bank to `examples/demo_output/`. 373 raw rows become 220 unified rows and the verification passes.
+
+What the output looks like (real Excel render of the demo workbook):
+
+![Summary sheet](docs/img/summary.png)
+
+![Account sheet](docs/img/account-sheet.png)
+
 ## Quick start
 
 ```bash
@@ -45,14 +60,14 @@ python skills/consolidar-extractos/scripts/consolidar.py inventario --config pro
 python skills/consolidar-extractos/scripts/consolidar.py todo --config proyecto.json
 ```
 
-To use it as a Claude Code skill, copy `skills/consolidar-extractos/` into `~/.claude/skills/` and ask Claude to consolidate a folder of bank statements.
+To use it as a Claude Code skill run `./install.sh` (copies it into `~/.claude/skills`; re-run with `--force` after a `git pull`) and ask Claude to consolidate a folder of bank statements.
 
 ## Design decisions (each one fixed a real bug)
 
 - **Never invent or hide anything.** A balance that does not chain is reported, not "fixed". An account or bank it cannot identify is asked about, not guessed.
 - **Compare rows by date + debit + credit, never by text.** Banks word the same transaction differently between a monthly and a grouped download; text-based matching duplicated two multi-million transfers in the first prototype.
 - **Order inside a day is not stable between downloads**, so the running balance differs row by row even when the transactions are identical. The tool uses one file per day and account instead of mixing sources.
-- **Formats are recognised by content, not file name.** One table reader with header synonyms covers most banks; a new layout is a small adapter.
+- **Formats are recognised by content, not file name.** One table reader with header synonyms (Spanish and English) covers most banks; a new layout is a small adapter.
 - **Running balance is the safety net.** `previous balance + credit - debit = balance` is checked per file, after unifying, and again from the final workbooks.
 - **A statement is not a ledger.** The inventory step asks whether the files are bank statements or accounting-system ledgers; they look alike but must not be presented interchangeably.
 - **Local only.** Bank data never leaves the machine.

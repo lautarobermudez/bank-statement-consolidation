@@ -69,6 +69,15 @@ def escribir_alfa(path, filas, saldo=True, descripcion_extra=''):
                         ar(cred) if cred else '', ar(s) if saldo else ''])
 
 
+def escribir_gamma(path, filas):
+    """Encabezados en ingles, separador coma, numeros 1,234.56 (US)."""
+    with open(path, 'w', newline='', encoding='utf-8') as fh:
+        w = csv.writer(fh)
+        w.writerow(['Date', 'Description', 'Debit', 'Credit', 'Balance'])
+        for f, desc, deb, cred, s in filas:
+            w.writerow([f.strftime('%Y-%m-%d'), desc, f'{deb:,.2f}' if deb else '', f'{cred:,.2f}' if cred else '', f'{s:,.2f}'])
+
+
 def escribir_beta(path, filas):
     import openpyxl
     wb = openpyxl.Workbook()
@@ -123,12 +132,18 @@ def main():
     escribir_beta(os.path.join(entrada, 'Banco Beta', 'Beta semana 1.xlsx'), previos + parte1)
     escribir_beta(os.path.join(entrada, 'Banco Beta', 'Beta semana 2 (inversa).xlsx'), (parte2 + despues)[::-1])
 
+    # ---- Banco Gamma: encabezados en ingles, numeros US
+    os.makedirs(os.path.join(entrada, 'Banco Gamma'))
+    base = verdad(30, 300)
+    gamma = con_saldo(base, D(300))
+    escribir_gamma(os.path.join(entrada, 'Banco Gamma', 'Gamma statement.csv'), gamma)
+
     # ---- banco imposible de identificar
     escribir_alfa(os.path.join(entrada, 'Varios', 'extracto_raro.csv'), alfa[:5])
 
     cfg_json = os.path.join(tmp, 'proyecto.json')
     json.dump({'empresa': 'Empresa de Prueba', 'cuit': '', 'entrada': entrada, 'salida': salida, 'idioma': 'es',
-               'bancos': [{'contiene': 'Alfa', 'banco': 'Banco Alfa'}, {'contiene': 'Beta', 'banco': 'Banco Beta'}],
+               'bancos': [{'contiene': 'Alfa', 'banco': 'Banco Alfa'}, {'contiene': 'Beta', 'banco': 'Banco Beta'}, {'contiene': 'Gamma', 'banco': 'Banco Gamma'}],
                'cuentas': [{'banco': 'Banco Alfa', 'cuenta': 'CC Alfa'}, {'banco': 'Banco Beta', 'cuenta': 'CC Beta'}]},
               open(cfg_json, 'w'))
     cfg = cargar_config(cfg_json)
@@ -154,7 +169,7 @@ def main():
     final = leer_movimientos(os.path.join(cfg['trabajo'], 'final.csv'))
     cortes = list(csv.DictReader(open(os.path.join(cfg['trabajo'], 'cortes_final.csv'), encoding='utf-8-sig'), delimiter=';'))
 
-    for nombre, verdad_filas in (('Banco Alfa', alfa), ('Banco Beta', beta)):
+    for nombre, verdad_filas in (('Banco Alfa', alfa), ('Banco Beta', beta), ('Banco Gamma', gamma)):
         f = [r for r in final if r['banco'] == nombre]
         chequear(len(f) == len(verdad_filas), f'{nombre}: {len(f)} filas recuperadas de {len(verdad_filas)} reales')
         chequear(sum(r['debito'] for r in f) == sum(r[2] for r in verdad_filas) and

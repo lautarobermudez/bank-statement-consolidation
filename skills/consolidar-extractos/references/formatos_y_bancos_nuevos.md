@@ -1,6 +1,6 @@
 # Formatos ya vistos y cómo sumar un banco nuevo
 
-El lector `tabla` reconoce encabezados por sinónimos, sin importar el banco. Casi todo lo que sea una tabla con fecha,
+El lector `tabla` reconoce encabezados por sinónimos en español y en inglés, sin importar el banco. Casi todo lo que sea una tabla con fecha,
 descripción, débito/crédito (o importe firmado) y saldo se lee solo.
 
 | Formato | Cómo viene | Detalles |

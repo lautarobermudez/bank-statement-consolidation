@@ -12,6 +12,9 @@ Cuando gerencia, auditoría o un banco piden "todos los extractos del año fisca
 
 Reglas que no se negocian: no inventar ni tapar nada (un saldo que no empalma se informa), comparar filas por fecha + débito + crédito y nunca por texto, un solo archivo por día y cuenta, todo en local.
 
+## Demo
+`python examples/make_demo.py` arma un conjunto **inventado** de extractos desordenados y corre todo el flujo (ver capturas en el [README en inglés](README.md#see-it-in-10-seconds)).
+
 ## Uso rápido
 ```bash
 pip install -r skills/consolidar-extractos/scripts/requirements.txt
@@ -19,6 +22,7 @@ cp skills/consolidar-extractos/scripts/proyecto.ejemplo.json proyecto.json
 python skills/consolidar-extractos/scripts/consolidar.py inventario --config proyecto.json
 python skills/consolidar-extractos/scripts/consolidar.py todo --config proyecto.json
 ```
+Para instalarla como skill de Claude Code: `./install.sh` (copia la skill a `~/.claude/skills`; repetir con `--force` después de un `git pull`).
 La documentación de la skill (en español) está en [`skills/consolidar-extractos/SKILL.md`](skills/consolidar-extractos/SKILL.md) y `references/`.
 
 ## Pruebas

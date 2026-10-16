@@ -98,16 +98,22 @@ def _mapear(encabezado):
                 m[campo] = i
                 usados.add(i)
                 return
-    buscar('fecha', lambda n: n.startswith('fecha') and 'alta' not in n and 'modi' not in n)
-    buscar('descripcion', lambda n: n.startswith('descripcion'))
+    # sinonimos en espanol e ingles (los extractos de otros paises/bancos digitales vienen en ingles)
+    buscar('fecha', lambda n: (n.startswith('fecha') and 'alta' not in n and 'modi' not in n)
+           or n in ('date', 'transactiondate', 'postingdate', 'bookingdate', 'valuedate'))
+    buscar('descripcion', lambda n: n.startswith('descripcion') or n.startswith('description'))
     if 'descripcion' not in m:
-        buscar('descripcion', lambda n: n in ('concepto', 'detalle', 'movimiento', 'leyenda'))
-    buscar('debito', lambda n: n.startswith('debit') or n in ('debe', 'montodebe', 'retiros', 'egresos'))
-    buscar('credito', lambda n: n.startswith('credit') or n in ('haber', 'montohaber', 'depositos', 'ingresos'))
-    buscar('saldo', lambda n: n.startswith('saldo'))
-    buscar('importe', lambda n: n in ('importe', 'monto'))
-    buscar('referencia', lambda n: 'referencia' in n or 'comprobante' in n or n in ('nro', 'numero'))
-    buscar('cuenta', lambda n: n in ('cuenta', 'tipodecuenta'))
+        buscar('descripcion', lambda n: n in ('concepto', 'detalle', 'movimiento', 'leyenda', 'details', 'detail',
+                                              'memo', 'narrative', 'particulars', 'transactiondetails'))
+    buscar('debito', lambda n: n.startswith('debit') or n in ('debe', 'montodebe', 'retiros', 'egresos', 'withdrawal',
+                                                              'withdrawals', 'moneyout', 'paidout'))
+    buscar('credito', lambda n: n.startswith('credit') or n in ('haber', 'montohaber', 'depositos', 'ingresos',
+                                                                'deposit', 'deposits', 'moneyin', 'paidin'))
+    buscar('saldo', lambda n: n.startswith('saldo') or n.startswith('balance') or n == 'runningbalance')
+    buscar('importe', lambda n: n in ('importe', 'monto', 'amount', 'transactionamount'))
+    buscar('referencia', lambda n: 'referencia' in n or 'comprobante' in n or 'reference' in n
+           or n in ('nro', 'numero', 'ref', 'transactionid'))
+    buscar('cuenta', lambda n: n in ('cuenta', 'tipodecuenta', 'account', 'accounttype'))
     extras = [i for i, n in enumerate(normas) if n and i not in usados and not n.startswith('moneda')]
     return m, extras
 
@@ -126,9 +132,9 @@ def _cuenta_en_cabecera(filas, hasta):
         celdas = [str(c).strip() for c in fila if c not in (None, '')]
         for j, c in enumerate(celdas):
             n = norm(c)
-            if n in ('numero', 'nrodecuenta', 'ncuenta', 'numerodecuenta', 'nrocuenta') and j + 1 < len(celdas):
+            if n in ('numero', 'nrodecuenta', 'ncuenta', 'numerodecuenta', 'nrocuenta', 'number', 'accountnumber', 'accountno') and j + 1 < len(celdas):
                 numero = celdas[j + 1]
-            if re.match(r'(cuenta|caja de ahorro)', c.lower()) and len(celdas) == 1 and not tipo:
+            if re.match(r'(cuenta|caja de ahorro|savings|checking|current account|account)', c.lower()) and len(celdas) == 1 and not tipo:
                 tipo = c.title()
     return (tipo + ' ' + numero).strip()
 
