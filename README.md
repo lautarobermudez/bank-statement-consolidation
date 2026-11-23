@@ -6,6 +6,10 @@ Turn a messy folder of bank statements into **one clean Excel workbook per bank*
 
 Packaged as a [Claude Code skill](https://docs.claude.com/en/docs/claude-code/skills) (`consolidar-extractos`) with plain Python scripts underneath, so it works with Claude guiding the process or from the command line. *(Spanish version: [README.es.md](README.es.md).)*
 
+## Why I built it
+
+I first wrote this at work, to consolidate the statements of several banks and accounts of a group of companies for the fiscal-year report. This repository is the general version: no company data, and it works for any set of statements.
+
 ## The problem
 
 Finance teams are regularly asked for "all bank statements for the fiscal year". In practice that means:

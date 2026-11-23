@@ -4,6 +4,9 @@ Convierte una carpeta desordenada de extractos bancarios en **un Excel limpio po
 
 Está empaquetado como *skill* de Claude Code (`consolidar-extractos`) con scripts de Python por debajo: se puede usar guiado por Claude o desde la línea de comandos.
 
+## Por qué lo hice
+Lo escribí primero en el trabajo, para consolidar los extractos de varios bancos y cuentas de un grupo de empresas para el reporte del año fiscal. Este repositorio es la versión general: sin datos de ninguna empresa y válida para cualquier conjunto de extractos.
+
 ## Para qué sirve
 Cuando gerencia, auditoría o un banco piden "todos los extractos del año fiscal" y lo que hay son varios bancos, cuentas abiertas y cerradas, el mismo período en xls/xlsx/csv/pdf, archivos mensuales y semanales que se pisan, duplicados y textos que cambian entre descargas.
 
